@@ -1,3 +1,6 @@
+from porter import PorterStemmer
+
+
 def main():
     pass
 
