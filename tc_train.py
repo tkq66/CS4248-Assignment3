@@ -1,137 +1,95 @@
+"""Text classification training module.
+
+Running this module will train a text classifier from a bunch of text files before
+exporting the model into a 'model' file. This module requires a file listing stopwords
+and a file listing train input files locations and its associated class.
+Run this module with:
+    python tc_train.py stopword-list train-class-list model
+
+Author: Teekayu Klongtruajrok
+For CS4248 Assignment 3 - National University of Singapore (NUS) 2017
+"""
+import json
 from porter import PorterStemmer
 import re
 from sys import argv
-
-totalClasses = 0
-initialWeightValue = 0
-inititialBiasValue = 1
-biasWeightKey = "__bias__"
-weights = {}
+from TextClassifier import TextClassifier as tc
 
 
-def getTextVectorFromFile(fileName):
-    # Read the text from file, remove all the spaces, and split into a vector
-    textVector = []
-    with open(fileName, "r") as fp:
-        textVector = fp.read().split()
-    return textVector
+def get_stop_word_set(file_name):
+    """Return a list of stopwords that's read from a file."""
+    stop_word_set = set()
+    with open(file_name, "r") as fp:
+        stop_word_set = set(fp.read().strip().split("\n"))
+    return stop_word_set
 
 
-def getStopWordSet(fileName):
-    stopWordSet = set()
-    with open(fileName, "r") as fp:
-        stopWordSet = set(fp.read().strip().split("\n"))
-    return stopWordSet
+def get_training_class_reference(file_name, tc_location="/home/course/cs4248/"):
+    """Return a training input reference.
 
+    Read the file containing input file location and its corresponding class then
+    format it to be ready to be fed into the a training function.
 
-def getTrainingClassReference(fileName, tcLocation="/home/course/cs4248/"):
-    defaultLocation = "/home/course/cs4248/"
-    isReplaceFileLoc = (tcLocation != defaultLocation)
-    trainingClassReference = {}
-    with open(fileName, "r") as fp:
+    Args:
+        file_name:   Path to the refrence file.
+        tc_location: Path to the input training files. (default '/home/course/cs4248/')
+
+    Returns:
+        Formatted reference data. Formatting as follows:
+            {
+                'class_name': [
+                    'text_file_input_path',
+                    'text_file_input_path',
+                    ...
+                ],
+                ...
+            }
+
+    """
+    default_location = "/home/course/cs4248/"
+    is_replace_file_loc = (tc_location != default_location)
+    training_class_reference = {}
+    with open(file_name, "r") as fp:
         for line in fp:
-            preprocessedLine = line.strip()
-            if preprocessedLine == "":
+            preprocessed_line = line.strip()
+            if preprocessed_line == "":
                 continue
-            preprocessedLine = re.sub(defaultLocation, tcLocation, preprocessedLine) if isReplaceFileLoc else preprocessedLine
-            filePath, className = preprocessedLine.split()
-            if className not in trainingClassReference:
-                trainingClassReference[className] = []
-            trainingClassReference[className].append(tuple((filePath, className)))
-    return trainingClassReference
+            preprocessed_line = re.sub(default_location, tc_location, preprocessed_line) if is_replace_file_loc else preprocessed_line
+            file_path, class_name = preprocessed_line.split()
+            if class_name not in training_class_reference:
+                training_class_reference[class_name] = []
+            training_class_reference[class_name].append(tuple((file_path, class_name)))
+    return training_class_reference
 
 
-def preprocessWord(rawInput, p, stopWordSet):
-    # Normalize the text to lowercase
-    inputWord = rawInput.lower() if rawInput.isalpha() else rawInput
-    # Ignore stopwords
-    if inputWord in stopWordSet:
-        return None
-    # Stem the word if it is indeed a word
-    word = p.stem(inputWord, 0, len(inputWord) - 1) if rawInput.isalpha() else inputWord
-    return word
-
-
-def preprocessText(textVector, p, stopWordSet):
-    global weights
-    # Initialize the counter reference for each word, with an auxiliary bias identity modifier
-    textReferenceCounter = {biasWeightKey: 1}
-    # Increment word counts and encode the word vector into numerical values
-    totalWordCount = 0
-    for i in range(len(textVector)):
-        word = preprocessWord(textVector[i], p, stopWordSet)
-        if word is None:
-            continue
-        # Initialize weight for word not yet seen
-        if word not in weights:
-            weights[word] = [initialWeightValue] * totalClasses
-        # Increment total word counts
-        textReferenceCounter[word] = textReferenceCounter.get(word, 0) + 1
-        totalWordCount += 1
-    # Normalize the word frequency so that texts of different length will
-    # contribute to the machine in the same scale
-    for word in textReferenceCounter:
-        if word == biasWeightKey:
-            continue
-        textReferenceCounter /= totalWordCount
-    return textReferenceCounter
-
-
-def activation(value, fn="step"):
-    if fn == "step":
-        return 1 if value > 0 else -1
-    else:
-        raise ValueError("Please provide a valid activation function type.")
-
-
-def affineTransformation(weightIndex, textReferenceCounter):
-    result = 0.0
-    for key in textReferenceCounter:
-        result = textReferenceCounter[key] * weights[key][weightIndex]
-    return result
-
-
-def forwardPass(weightIndex, textVector, p, stopWordSet):
-    textReferenceCounter = preprocessText(textVector, p, stopWordSet)
-    affineResult = affineTransformation(weightIndex, textReferenceCounter)
-    result = activation(affineResult, fn="step")
-    return result, textReferenceCounter
-
-
-def updateWeights(textReferenceCounter, lr, networkOutput):
-    global weights
-    for word in textReferenceCounter:
-        # Assuming that the classes are one-hot encoded, the target output is 1
-        delta = lr * (1 - networkOutput) * textReferenceCounter[word]
-        weights[word] += delta
-
-
-def train(p, stopWordSet, trainingClassReference, lr=0.01):
-    assert lr > 0
-    for index, className in trainingClassReference:
-        for trainingClass in trainingClassReference[className]:
-            filePath, classLabel = trainingClass
-            textVector = getTextVectorFromFile(filePath)
-            # Send new input through forward pass
-            result, textReferenceCounter = forwardPass(index, textVector, p, stopWordSet, lr)
-            # Update the weights
-            updateWeights(textReferenceCounter, lr, result)
+def output_model_to_file(model, file_name):
+    """Write the classifier weights out to a json file."""
+    with open(file_name, "w") as output_file:
+        json.dump(model, output_file)
 
 
 def main():
-    stopWordFileName = argv[1]
-    trainClassListFileName = argv[2]
-    outputModelFileName = argv[3]
+    """Perform training and outputting the model.
 
-    trainingClassReference = getTrainingClassReference(trainClassListFileName, tcLocation="")
-    global totalClasses
-    totalClasses = trainingClassReference.keys()
-    global weights
-    weights = {biasWeightKey: [inititialBiasValue] * len(totalClasses)}
+    Get the training class reference dict, stemmer, stop word set, and classifier object
+    then train the classifier before outputting the classifier weights to a file.
+    Required three command line arguments:
+        1.) path to the stopword file
+        2.) path to the reference file
+        3.) output model file name
+    """
+    stop_word_file_name = argv[1]
+    train_class_list_file_name = argv[2]
+    output_model_file_name = argv[3]
+
+    training_class_reference = get_training_class_reference(train_class_list_file_name, tc_location="")
     p = PorterStemmer()
-    stopWordSet = getStopWordSet(stopWordFileName)
-
-    train(p, stopWordSet, trainingClassReference)
+    stop_word_set = get_stop_word_set(stop_word_file_name)
+    text_classifier = tc.TextClassifier(class_names=training_class_reference.keys(),
+                                        stemmer=p,
+                                        stopwords=stop_word_set)
+    text_classifier.train(p, stop_word_set, training_class_reference)
+    output_model_to_file(text_classifier.get_weights(), output_model_file_name)
 
 
 if __name__ == "__main__":
