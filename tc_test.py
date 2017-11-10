@@ -9,6 +9,9 @@ Run this module with:
 Author: Teekayu Klongtruajrok
 For CS4248 Assignment 3 - National University of Singapore (NUS) 2017
 """
+from data_utils import get_stop_word_set, get_training_class_reference
+from sys import argv
+from TextClassifier import TextClassifier as tc
 
 
 def main():
