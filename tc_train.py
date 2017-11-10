@@ -37,12 +37,10 @@ def main():
     output_model_file_name = argv[3]
 
     training_class_reference = get_training_class_reference(train_class_list_file_name, tc_location="")
-    p = PorterStemmer()
-    stop_word_set = get_stop_word_set(stop_word_file_name)
     text_classifier = tc.TextClassifier(class_names=training_class_reference.keys(),
-                                        stemmer=p,
-                                        stopwords=stop_word_set)
-    text_classifier.train(p, stop_word_set, training_class_reference)
+                                        stemmer=PorterStemmer(),
+                                        stopwords=get_stop_word_set(stop_word_file_name))
+    text_classifier.train(training_class_reference)
     output_model_to_file(text_classifier.get_weights(), output_model_file_name)
 
 
