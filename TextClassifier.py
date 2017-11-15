@@ -77,7 +77,7 @@ class TextClassifier:
                                         Supported activation functions:
                                             1.) "step" - Step function
             lr:                       A floating point learning rate. (default 0.01)
-            verbose:                  A boolean switch whether to print training details or not.
+            verbose:                  A boolean switch whether to print training details or not. (default Fasle)
         """
         assert isinstance(training_class_reference, dict)
         assert all(isinstance(training_class_reference[c], list) for c in training_class_reference.keys())
