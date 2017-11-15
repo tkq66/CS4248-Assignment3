@@ -130,8 +130,8 @@ class TextClassifier:
         predictive power of this dataset.
 
         Args:
-            class_label  : A string label for the class to be evaluated.
-            text_vector  : A list of raw text input.
+            class_label:   A string label for the class to be evaluated.
+            text_vector:   A list of raw text input.
             activation_fn: A string identifier of the activation function to use.
 
         Returns:
