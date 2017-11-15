@@ -55,7 +55,7 @@ class TextClassifier:
         """Return classifier weight model."""
         return self.__weights
 
-    def train(self, training_class_reference, activation_fn="step", lr=0.01):
+    def train(self, training_class_reference, epochs, activation_fn="step", lr=0.01, verbose=False):
         """Train perceptron classifier from an input dictionary.
 
         Train a text classifier using perceptron algorithm from a given input data.
@@ -72,25 +72,41 @@ class TextClassifier:
                     ],
                     ...
                 }
+            epochs:                   A number of iterations over the dataset to train.
             activation_fn:            A string identifier of the activation function to use. (default 'step')
                                         Supported activation functions:
                                             1.) "step" - Step function
             lr:                       A floating point learning rate. (default 0.01)
+            verbose:                  A boolean switch whether to print training details or not.
         """
         assert isinstance(training_class_reference, dict)
         assert all(isinstance(training_class_reference[c], list) for c in training_class_reference.keys())
         assert all(all(isinstance(n, str) for n in training_class_reference[c]) for c in training_class_reference.keys())
         assert activation_fn in self.__SUPPORTED_ACTIVATION
         assert lr > 0
+        assert epochs > 0
 
-        for index, class_name in training_class_reference:
-            for training_class in training_class_reference[class_name]:
-                file_path, class_label = training_class
-                text_vector = self.__get_text_vector_from_file(file_path)
-                # Send new input through forward pass
-                result, text_reference_counter = self.__forward_pass(index, text_vector, activation_fn)
-                # Update the weights
-                self.__update_weights(text_reference_counter, result, lr)
+        for index, class_name in enumerate(training_class_reference):
+            for epoch in range(epochs):
+                if verbose:
+                    print("Training class {} - Epoch {}/{}".format(class_name, epoch, epochs))
+                sse = 0.0
+                for i in range(len(training_class_reference[class_name])):
+                    file_path = training_class_reference[class_name][i]
+                    text_vector = self.__get_text_vector_from_file(file_path)
+                    # Send new input through forward pass
+                    result, text_reference_counter = self.__forward_pass(class_name, text_vector, activation_fn)
+                    # Update the weights
+                    self.__update_weights(class_name, text_reference_counter, result, lr)
+                    # Caclculate the error
+                    sse += (result - 1) ** 2
+                    if verbose:
+                        print("Progress... {}/{} - sse: {}\033[K".format(i, len(training_class_reference[class_name]), sse), end="\r")
+                if verbose:
+                    print("\nLoss: {}".format(sse))
+                # Move on to training the next class if there is no more error
+                if sse == 0:
+                    break
 
     def __get_text_vector_from_file(self, file_name):
         """Read the text from file, remove all the spaces, and split into a vector.
@@ -99,7 +115,7 @@ class TextClassifier:
             file_name: File path string to the input text file.
         """
         text_vector = []
-        with open(file_name, "r") as fp:
+        with open(file_name, "r", encoding="iso-8859-1") as fp:
             text_vector = fp.read().split()
         return text_vector
 
@@ -184,7 +200,7 @@ class TextClassifier:
         for word in text_reference_counter:
             if word == self.__BIAS_WEIGHT_KEY:
                 continue
-            text_reference_counter /= total_word_count
+            text_reference_counter[word] /= total_word_count
         return text_reference_counter
 
     def __preprocess_word(self, token):

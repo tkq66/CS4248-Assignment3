@@ -13,7 +13,7 @@ from data_utils import get_stop_word_set, get_training_class_reference
 import json
 from porter import PorterStemmer
 from sys import argv
-from TextClassifier import TextClassifier as tc
+from TextClassifier import TextClassifier
 
 
 def output_model_to_file(model, file_name):
@@ -37,10 +37,10 @@ def main():
     output_model_file_name = argv[3]
 
     training_class_reference = get_training_class_reference(train_class_list_file_name, tc_location="")
-    text_classifier = tc.TextClassifier(class_names=training_class_reference.keys(),
-                                        stemmer=PorterStemmer(),
-                                        stopwords=get_stop_word_set(stop_word_file_name))
-    text_classifier.train(training_class_reference)
+    text_classifier = TextClassifier(class_names=list(training_class_reference.keys()),
+                                     stemmer=PorterStemmer(),
+                                     stopwords=get_stop_word_set(stop_word_file_name))
+    text_classifier.train(training_class_reference, epochs=200, verbose=True)
     output_model_to_file(text_classifier.get_weights(), output_model_file_name)
 
 

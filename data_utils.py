@@ -48,5 +48,5 @@ def get_training_class_reference(file_name, tc_location="/home/course/cs4248/"):
             file_path, class_name = preprocessed_line.split()
             if class_name not in training_class_reference:
                 training_class_reference[class_name] = []
-            training_class_reference[class_name].append(tuple((file_path, class_name)))
+            training_class_reference[class_name].append(file_path)
     return training_class_reference
