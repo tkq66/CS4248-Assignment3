@@ -146,7 +146,7 @@ class TextClassifier:
             for class_name in self.__class_names:
                 # Send new input through forward pass
                 result, text_reference_counter = self.__forward_pass(class_name, text_vector, activation_fn)
-                predicted_classes.append(tuple(class_name, result))
+                predicted_classes.append(tuple((class_name, result)))
             predicted_class_name, _ = max(predicted_classes, key=lambda x: x[1])
             results[file_path] = predicted_class_name
         return results
@@ -197,11 +197,13 @@ class TextClassifier:
         if verbose:
             print("Begin {}-fold cross-validation".format(k))
         for i in range(k):
+            # Referesh the model
+            self.__clear_weights()
             if verbose:
                 print("K-th {}/{}".format(i, k))
             self.train(training_reference[i], epochs, activation_fn=activation_fn, lr=lr, verbose=verbose)
-            raw_validation_data = [file_path for class_name in validating_reference for file_path in validating_reference[class_name]]
-            solution_validation_data = {file_path: class_name for class_name in validating_reference for file_path in validating_reference[class_name]}
+            raw_validation_data = [file_path for class_name in validating_reference[i] for file_path in validating_reference[i][class_name]]
+            solution_validation_data = {file_path: class_name for class_name in validating_reference[i] for file_path in validating_reference[i][class_name]}
             predicted_classes = self.predict(raw_validation_data, verbose=verbose)
             # Score the prediction
             if verbose:
@@ -216,6 +218,10 @@ class TextClassifier:
                 print("Error rate: {}".format(error_report[k_label]))
         error_report[avg_label] /= k
         return error_report
+
+    def __clear_weights(self):
+        """Clean up the weight model, leaving only default init values"""
+        self.__weights = {self.__BIAS_WEIGHT_KEY: {name: self.__INITIAL_BIAS_VALUE for name in self.__class_names}}
 
     def __get_text_vector_from_file(self, file_name):
         """Read the text from file, remove all the spaces, and split into a vector.
