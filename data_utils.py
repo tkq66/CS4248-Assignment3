@@ -89,7 +89,8 @@ def split_cross_validation_class_reference(k, training_class_reference):
             ]
 
     """
-    training_reference = validating_reference = [{}] * k
+    training_reference = [dict() for i in range(k)]
+    validating_reference = [dict() for i in range(k)]
     for class_name in training_class_reference:
         # Split the item counts for each k iterations
         items_in_class = len(training_class_reference[class_name])
@@ -105,4 +106,4 @@ def split_cross_validation_class_reference(k, training_class_reference):
             val_index_range = set(range(val_begin, val_end))
             validating_reference[i][class_name] = training_class_reference[class_name][val_begin:val_end]
             training_reference[i][class_name] = [ref for i, ref in enumerate(training_class_reference[class_name]) if i not in val_index_range]
-        return training_reference, validating_reference
+    return training_reference, validating_reference
