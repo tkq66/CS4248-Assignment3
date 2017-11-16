@@ -35,7 +35,7 @@ def main():
                                      stopwords=get_stop_word_set(stop_word_file_name))
     error_report = text_classifier.cross_validate(k,
                                                   training_class_reference,
-                                                  epochs=300,
+                                                  epochs=100,
                                                   activation_fn="step",
                                                   lr=0.01,
                                                   verbose=True)

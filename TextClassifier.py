@@ -94,6 +94,9 @@ class TextClassifier:
         assert lr > 0
         assert epochs > 0
 
+        # TODO CLEAN UP THIS HACK
+        self.__training_class_reference = training_class_reference
+
         if verbose:
             print("Begin training...")
         for epoch in range(epochs):
@@ -287,7 +290,7 @@ class TextClassifier:
             of how successful the model is in predicting the current class.
 
         """
-        text_reference_counter = self.__preprocess_text(text_vector)
+        text_reference_counter = self.__preprocess_text(text_vector, class_label)
         affine_result = self.__affine_transformation(class_label, text_reference_counter)
         result = self.__activation(affine_result, activation_fn)
         return result, affine_result, text_reference_counter
@@ -353,7 +356,7 @@ class TextClassifier:
             print("Invalid activation function provided: {}, falling back on to step activation.".format(fn))
             return 1 if value >= 0 else -1
 
-    def __preprocess_text(self, text_vector):
+    def __preprocess_text(self, text_vector, class_label):
         """Preprocess a text vector.
 
         Preprocess a text vector (list of texts/tokens) following these steps:
@@ -382,6 +385,9 @@ class TextClassifier:
                 continue
             # Initialize weight for word not yet seen
             if word not in self.__weights:
+                # correlation_coeff = self.__calculate_chi_squared(word, class_label)
+                # if correlation_coeff >= 1:
+                #     self.__weights[word] = {name: self.__INITIAL_WEIGHT_VALUE for name in self.__class_names}
                 self.__weights[word] = {name: self.__INITIAL_WEIGHT_VALUE for name in self.__class_names}
             # Increment total word counts
             text_reference_counter[word] = text_reference_counter.get(word, 0) + 1
@@ -419,6 +425,38 @@ class TextClassifier:
         word = self.__stemmer.stem(input_word, 0, len(input_word) - 1) if token.isalpha() else input_word
         return word
 
+    def __calculate_chi_squared(self, stemmed_word, class_label):
+        n00 = 0
+        n01 = 0
+        n10 = 0
+        n11 = 0
+        for class_name in self.__training_class_reference:
+            for file_path in self.__training_class_reference[class_name]:
+                text_vector = self.__get_text_vector_from_file(file_path)
+                total_word_count = len(text_vector)
+                processed_words = set()
+                for i in range(total_word_count):
+                    word = self.__preprocess_word(text_vector[i])
+                    if word is None:
+                        continue
+                    processed_words.add(word)
+                have_word = stemmed_word in processed_words
+                in_class = class_name == class_label
+                if have_word and in_class:
+                    n11 += 1
+                elif have_word and not in_class:
+                    n10 += 1
+                elif not have_word and in_class:
+                    n01 += 1
+                elif not have_word and not in_class:
+                    n00 += 1
+        # print(stemmed_word, n00, n11, n10, n01)
+        num = ((n00 + n01 + n10 + n11) * (((n11 * n00) - (n10 * n01)) ** 2))
+        den = ((n11 + n01) * (n11 + n10) * (n10 + n00) * (n01 + n00))
+        if den == 0:
+            return 0
+        return num / den
+
     def __affine_transformation(self, class_label, text_reference_counter):
         """Calculate the affine transformation of a given input for a given class.
 
@@ -436,7 +474,7 @@ class TextClassifier:
         """
         result = 0.0
         for key in text_reference_counter:
-            result = text_reference_counter[key] * self.__weights[key][class_label]
+            result += text_reference_counter[key] * self.__weights[key][class_label]
         return result
 
     def __activation(self, value, fn):
