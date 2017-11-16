@@ -7,6 +7,7 @@ Author: Teekayu Klongtruajrok
 For CS4248 Assignment 3 - National University of Singapore (NUS) 2017
 """
 from data_utils import split_cross_validation_class_reference
+from math import exp
 
 
 class TextClassifier:
@@ -15,7 +16,7 @@ class TextClassifier:
     __INITIAL_WEIGHT_VALUE = 0
     __INITIAL_BIAS_VALUE = 1
     __BIAS_WEIGHT_KEY = "__bias__"
-    __SUPPORTED_ACTIVATION = ["step"]
+    __SUPPORTED_ACTIVATION = ["step", "sigmoid"]
 
     def __init__(self, class_names, stemmer, stopwords, weights=None):
         """Initialize weight dict and take in other dependencies.
@@ -78,6 +79,7 @@ class TextClassifier:
             activation_fn:            A string identifier of the activation function to use. (default 'step')
                                         Supported activation functions:
                                             1.) "step" - Step function
+                                            2.) "sigmoid" - Sigmoid function
             lr:                       A floating point learning rate. (default 0.01)
             verbose:                  A boolean switch whether to print training details or not. (default Fasle)
         """
@@ -120,6 +122,7 @@ class TextClassifier:
             activation_fn:        A string identifier of the activation function to use. (default 'step')
                                     Supported activation functions:
                                         1.) "step" - Step function
+                                        2.) "sigmoid" - Sigmoid function
             verbose:              A boolean switch whether to print details or not. (default Fasle)
 
         Returns:
@@ -178,6 +181,7 @@ class TextClassifier:
             activation_fn:            A string identifier of the activation function to use. (default 'step')
                                         Supported activation functions:
                                             1.) "step" - Step function
+                                            2.) "sigmoid" - Sigmoid function
             lr:                       A floating point learning rate. (default 0.01)
             verbose:                  A boolean switch whether to print details or not. (default Fasle)
 
@@ -375,6 +379,8 @@ class TextClassifier:
         """
         if fn == "step":
             return self.__step_function(value)
+        elif fn == "sigmoid":
+            return self.__sigmoid_function(value)
         else:
             print("Invalid activation function provided: {}, falling back on to step activation.".format(fn))
             return self.__step_function(value)
@@ -382,3 +388,7 @@ class TextClassifier:
     def __step_function(self, value):
         """Return 1 if value is greater than 0, -1 otherwise."""
         return 1 if value > 0 else -1
+
+    def __sigmoid_function(self, value):
+        """Return the value of sigmoid transformation."""
+        return 1 / (1 + exp(value))
