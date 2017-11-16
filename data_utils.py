@@ -3,6 +3,7 @@
 Author: Teekayu Klongtruajrok
 For CS4248 Assignment 3 - National University of Singapore (NUS) 2017
 """
+import json
 import re
 
 
@@ -107,3 +108,9 @@ def split_cross_validation_class_reference(k, training_class_reference):
             validating_reference[i][class_name] = training_class_reference[class_name][val_begin:val_end]
             training_reference[i][class_name] = [ref for i, ref in enumerate(training_class_reference[class_name]) if i not in val_index_range]
     return training_reference, validating_reference
+
+
+def output_dict_to_file(object, file_name):
+    """Write the dictionary out to a json file."""
+    with open(file_name, "w") as output_file:
+        json.dump(object, output_file)

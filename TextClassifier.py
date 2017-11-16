@@ -6,6 +6,7 @@ TextClassifier.train's docstring). The classifier uses perceptron algorithm for 
 Author: Teekayu Klongtruajrok
 For CS4248 Assignment 3 - National University of Singapore (NUS) 2017
 """
+from data_utils import split_cross_validation_class_reference
 
 
 class TextClassifier:
@@ -16,7 +17,7 @@ class TextClassifier:
     __BIAS_WEIGHT_KEY = "__bias__"
     __SUPPORTED_ACTIVATION = ["step"]
 
-    def __init__(self, class_names, stemmer, stopwords):
+    def __init__(self, class_names, stemmer, stopwords, weights=None):
         """Initialize weight dict and take in other dependencies.
 
         Initialize the object and accept tools for preprocessing: the stemmer object
@@ -39,6 +40,7 @@ class TextClassifier:
             class_names: A list of all class labels.
             stemmer:     An instance of the stemmer object, must have 'stem' method.
             stopwords:   A set of stopwords (words to ignore during training).
+            weights:     A weight model object, to populate the model from a checkpoint. (default None)
         """
         assert isinstance(class_names, list)
         assert all(isinstance(name, str) for name in class_names)
@@ -46,7 +48,7 @@ class TextClassifier:
         assert isinstance(stopwords, set)
         assert all(isinstance(word, str) for word in stopwords)
 
-        self.__weights = {self.__BIAS_WEIGHT_KEY: {name: self.__INITIAL_BIAS_VALUE for name in class_names}}
+        self.__weights = weights if weights is not None else {self.__BIAS_WEIGHT_KEY: {name: self.__INITIAL_BIAS_VALUE for name in class_names}}
         self.__class_names = class_names
         self.__stemmer = stemmer
         self.__stop_word_set = stopwords
@@ -107,6 +109,113 @@ class TextClassifier:
                 # Move on to training the next class if there is no more error
                 if sse == 0:
                     break
+
+    def predict(self, input_data_reference, activation_fn="step", verbose=False):
+        """Predict class from an input data.
+
+        Take in multiple input file names, read the files, and label them with the correct class.
+
+        Args:
+            input_data_reference: A list of file names referncing the text data file.
+            activation_fn:        A string identifier of the activation function to use. (default 'step')
+                                    Supported activation functions:
+                                        1.) "step" - Step function
+            verbose:              A boolean switch whether to print details or not. (default Fasle)
+
+        Returns:
+            A dict of file names and its associated class label. Formatting as follows:
+                {
+                    "some file path": "some labeled class",
+                    ...
+                }
+
+        """
+        assert isinstance(input_data_reference, list)
+
+        if verbose:
+            print("Begin prediction...")
+        total_input = len(input_data_reference)
+        results = {}
+        for i, file_path in enumerate(input_data_reference):
+            if verbose:
+                print("Predicting data... {}/{}\033[K".format(i, total_input), end="\r")
+            # Get raw data
+            text_vector = self.__get_text_vector_from_file(file_path)
+            predicted_classes = []
+            # Calculate the forward pass for for all perceptron classes, then select largest one
+            for class_name in self.__class_names:
+                # Send new input through forward pass
+                result, text_reference_counter = self.__forward_pass(class_name, text_vector, activation_fn)
+                predicted_classes.append(tuple(class_name, result))
+            predicted_class_name, _ = max(predicted_classes, key=lambda x: x[1])
+            results[file_path] = predicted_class_name
+        return results
+
+    def cross_validate(self, k, training_class_reference, epochs, activation_fn="step", lr=0.01, verbose=False):
+        """Perform k-fold cross validation from a given dataset.
+
+        Performs training and validation on the given dataset k times. The dataset will first be splitted
+        into training and validating dataset, uniquely for k number of times. Then for each k-th entry,
+        train on the splitted training dataset and validate on the splitted validating dataset. Finally,
+        the result of each validation is returned.
+
+        Note: This is purely for reporting performance of the machine, and running this will not produce
+        a persistent weight model. To produce a weight model after training, consult the "train" method.
+
+        Args:
+            k:                        A number of cross-validation to be performed.
+            training_class_reference: Input dictionary data to train the model, complying
+                to the following format:
+                {
+                    'class_name': [
+                        'text_file_input_path',
+                        'text_file_input_path',
+                        ...
+                    ],
+                    ...
+                }
+            epochs:                   A number of iterations over the dataset to train.
+            activation_fn:            A string identifier of the activation function to use. (default 'step')
+                                        Supported activation functions:
+                                            1.) "step" - Step function
+            lr:                       A floating point learning rate. (default 0.01)
+            verbose:                  A boolean switch whether to print details or not. (default Fasle)
+
+        Returns:
+            An accuracy performance report object for each k, and an average over all k's. Formatting as follows:
+                {
+                    "1": 0.94532,
+                    "2": 0.95323,
+                    ... ,
+                    "avg": 0.94623
+                }
+
+        """
+        avg_label = "avg"
+        error_report = {avg_label: 0}
+        training_reference, validating_reference = split_cross_validation_class_reference(k, training_class_reference)
+        if verbose:
+            print("Begin {}-fold cross-validation".format(k))
+        for i in range(k):
+            if verbose:
+                print("K-th {}/{}".format(i, k))
+            self.train(training_reference[i], epochs, activation_fn=activation_fn, lr=lr, verbose=verbose)
+            raw_validation_data = [file_path for class_name in validating_reference for file_path in validating_reference[class_name]]
+            solution_validation_data = {file_path: class_name for class_name in validating_reference for file_path in validating_reference[class_name]}
+            predicted_classes = self.predict(raw_validation_data, verbose=verbose)
+            # Score the prediction
+            if verbose:
+                print("Scoring the prediction...")
+            k_label = str(i)
+            error_report[k_label] = 0
+            for file_path in predicted_classes:
+                error_report[k_label] += 1 if predicted_classes[file_path] != solution_validation_data[file_path] else 0
+            error_report[k_label] /= len(raw_validation_data)
+            error_report[avg_label] += error_report[k_label]
+            if verbose:
+                print("Error rate: {}".format(error_report[k_label]))
+        error_report[avg_label] /= k
+        return error_report
 
     def __get_text_vector_from_file(self, file_name):
         """Read the text from file, remove all the spaces, and split into a vector.

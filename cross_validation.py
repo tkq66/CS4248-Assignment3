@@ -7,8 +7,7 @@ over all k's before outputting it to a file.
 Author: Teekayu Klongtruajrok
 For CS4248 Assignment 3 - National University of Singapore (NUS) 2017
 """
-from data_utils import get_stop_word_set, get_training_class_reference, split_cross_validation_class_reference
-import json
+from data_utils import get_stop_word_set, get_training_class_reference, output_dict_to_file
 from porter import PorterStemmer
 from sys import argv
 from TextClassifier import TextClassifier
@@ -34,7 +33,11 @@ def main():
     text_classifier = TextClassifier(class_names=list(training_class_reference.keys()),
                                      stemmer=PorterStemmer(),
                                      stopwords=get_stop_word_set(stop_word_file_name))
-    training_reference, validating_reference = split_cross_validation_class_reference(k, training_class_reference)
+    error_report = text_classifier.cross_validate(k,
+                                                  training_class_reference,
+                                                  epochs=200,
+                                                  verbose=True)
+    output_dict_to_file(error_report, output_file_name)
 
 
 if __name__ == "__main__":

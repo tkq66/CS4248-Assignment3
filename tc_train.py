@@ -9,17 +9,10 @@ Run this module with:
 Author: Teekayu Klongtruajrok
 For CS4248 Assignment 3 - National University of Singapore (NUS) 2017
 """
-from data_utils import get_stop_word_set, get_training_class_reference
-import json
+from data_utils import get_stop_word_set, get_training_class_reference, output_dict_to_file
 from porter import PorterStemmer
 from sys import argv
 from TextClassifier import TextClassifier
-
-
-def output_model_to_file(model, file_name):
-    """Write the classifier weights out to a json file."""
-    with open(file_name, "w") as output_file:
-        json.dump(model, output_file)
 
 
 def main():
@@ -41,7 +34,7 @@ def main():
                                      stemmer=PorterStemmer(),
                                      stopwords=get_stop_word_set(stop_word_file_name))
     text_classifier.train(training_class_reference, epochs=200, verbose=True)
-    output_model_to_file(text_classifier.get_weights(), output_model_file_name)
+    output_dict_to_file(text_classifier.get_weights(), output_model_file_name)
 
 
 if __name__ == "__main__":
