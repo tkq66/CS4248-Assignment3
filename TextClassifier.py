@@ -90,22 +90,25 @@ class TextClassifier:
         assert lr > 0
         assert epochs > 0
 
-        for index, class_name in enumerate(training_class_reference):
+        for index, training_class_name in enumerate(training_class_reference):
             for epoch in range(epochs):
                 if verbose:
-                    print("Training class {} - Epoch {}/{}".format(class_name, epoch, epochs))
+                    print("Training class {} - Epoch {}/{}".format(training_class_name, epoch, epochs))
                 sse = 0.0
-                for i in range(len(training_class_reference[class_name])):
-                    file_path = training_class_reference[class_name][i]
-                    text_vector = self.__get_text_vector_from_file(file_path)
-                    # Send new input through forward pass
-                    result, text_reference_counter = self.__forward_pass(class_name, text_vector, activation_fn)
-                    # Update the weights
-                    self.__update_weights(class_name, text_reference_counter, result, lr)
-                    # Caclculate the error
-                    sse += (result - 1) ** 2
-                    if verbose:
-                        print("Progress... {}/{} - sse: {}\033[K".format(i, len(training_class_reference[class_name]), sse), end="\r")
+                # Train with all the available data, specifying 1 when it's the correct class and -1 otherwise
+                for index, data_class_name in enumerate(training_class_reference):
+                    expected_output = 1 if data_class_name == training_class_name else -1
+                    for i in range(len(training_class_reference[data_class_name])):
+                        file_path = training_class_reference[data_class_name][i]
+                        text_vector = self.__get_text_vector_from_file(file_path)
+                        # Send new input through forward pass for the class currently training
+                        result, text_reference_counter = self.__forward_pass(training_class_name, text_vector, activation_fn)
+                        # Update the weights for the class currently training
+                        self.__update_weights(training_class_name, expected_output, text_reference_counter, result, lr)
+                        # Caclculate the error
+                        sse += (result - expected_output) ** 2
+                        if verbose:
+                            print("Progress... {}/{} - sse: {}\033[K".format(i, len(training_class_reference[data_class_name]), sse), end="\r")
                 if verbose:
                     print("\nLoss: {}".format(sse))
                 # Move on to training the next class if there is no more error
@@ -208,14 +211,15 @@ class TextClassifier:
             self.train(training_reference[i], epochs, activation_fn=activation_fn, lr=lr, verbose=verbose)
             raw_validation_data = [file_path for class_name in validating_reference[i] for file_path in validating_reference[i][class_name]]
             solution_validation_data = {file_path: class_name for class_name in validating_reference[i] for file_path in validating_reference[i][class_name]}
-            predicted_classes = self.predict(raw_validation_data, verbose=verbose)
+            predicted_classes = self.predict(raw_validation_data, activation_fn=activation_fn, verbose=verbose)
             # Score the prediction
             if verbose:
                 print("Scoring the prediction...")
             k_label = str(i)
             error_report[k_label] = 0
             for file_path in predicted_classes:
-                error_report[k_label] += 1 if predicted_classes[file_path] != solution_validation_data[file_path] else 0
+                isCorrect = predicted_classes[file_path] == solution_validation_data[file_path]
+                error_report[k_label] += 1 if not isCorrect else 0
             error_report[k_label] /= len(raw_validation_data)
             error_report[avg_label] += error_report[k_label]
             if verbose:
@@ -263,7 +267,7 @@ class TextClassifier:
         result = self.__activation(affine_result, activation_fn)
         return result, text_reference_counter
 
-    def __update_weights(self, class_label, text_reference_counter, network_output, lr):
+    def __update_weights(self, class_label, expected_output, text_reference_counter, network_output, lr):
         """Update the weights of the model, following the perceptron updating rule.
 
         Update each word-feature's weight for a specified class by the percetron update rule:
@@ -273,13 +277,15 @@ class TextClassifier:
 
         Args:
             class_label:            A string label for the class to have the weight updated.
+            expected_output:        A number either 1 or -1, guding the network_output.
+                                        1 means this is the correct class.
+                                        -1 means this is the wrong class.
             text_reference_counter: A dict of words with its associated word-count.
             network_output:         An output number from the perceptron network.
             lr:                     A floating point learning rate.
         """
         for word in text_reference_counter:
-            # Assuming that the classes are one-hot encoded, the target output is 1
-            delta = lr * (1 - network_output) * text_reference_counter[word]
+            delta = lr * (expected_output - network_output) * text_reference_counter[word]
             self.__weights[word][class_label] += delta
 
     def __preprocess_text(self, text_vector):
@@ -391,4 +397,4 @@ class TextClassifier:
 
     def __sigmoid_function(self, value):
         """Return the value of sigmoid transformation."""
-        return 1 / (1 + exp(value))
+        return 1 / (1 + exp(-value))
