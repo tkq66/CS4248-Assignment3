@@ -36,7 +36,7 @@ def main():
     error_report = text_classifier.cross_validate(k,
                                                   training_class_reference,
                                                   epochs=300,
-                                                  activation_fn="sigmoid",
+                                                  activation_fn="step",
                                                   lr=0.01,
                                                   verbose=True)
     output_dict_to_file(error_report, output_file_name)

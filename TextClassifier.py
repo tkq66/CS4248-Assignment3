@@ -9,6 +9,7 @@ For CS4248 Assignment 3 - National University of Singapore (NUS) 2017
 from data_utils import split_cross_validation_class_reference
 from math import exp, sqrt
 from random import gauss
+import datetime
 
 
 class TextClassifier:
@@ -59,7 +60,7 @@ class TextClassifier:
         """Return classifier weight model."""
         return self.__weights
 
-    def train(self, training_class_reference, epochs, activation_fn="step", lr=0.01, validate=False, verbose=False, basic_log=False):
+    def train(self, training_class_reference, epochs, activation_fn="step", lr=0.01, validate_data=None, validate=False, verbose=False, basic_log=False):
         """Train perceptron classifier from an input dictionary.
 
         Train a text classifier using perceptron algorithm from a given input data.
@@ -95,8 +96,9 @@ class TextClassifier:
 
         if verbose:
             print("Begin training...")
-        for index, training_class_name in enumerate(training_class_reference):
-            for epoch in range(epochs):
+        for epoch in range(epochs):
+            print(datetime.datetime.now())
+            for index, training_class_name in enumerate(training_class_reference):
                 sse = 0.0
                 acc = 0.0
                 data_count = 0
@@ -113,16 +115,16 @@ class TextClassifier:
                         self.__update_weights(training_class_name, expected_output, text_reference_counter, binary_result, lr)
                         # Caclculate the error
                         sse += (binary_result - expected_output) ** 2
-                        if validate:
-                            acc += 1 if self.__predict_multi(text_vector, activation_fn) == training_class_name else 0
-                            data_count += 1
+                        # if validate:
+                        #     acc += 1 if self.__predict_multi(text_vector, activation_fn) == training_class_name else 0
+                        #     data_count += 1
                         if verbose:
                             print("Progress... {}/{} - sse: {}\033[K".format(i+1, len(training_class_reference[data_class_name]), sse), end="\r")
                 # for i in range(len(training_class_reference[training_class_name])):
                 #     file_path = training_class_reference[training_class_name][i]
                 #     text_vector = self.__get_text_vector_from_file(file_path)
                 #     # Send new input through forward pass for the class currently training
-                #     result, text_reference_counter = self.__forward_pass(training_class_name, text_vector, activation_fn)
+                #     result, affine_result, text_reference_counter = self.__forward_pass(training_class_name, text_vector, activation_fn)
                 #     binary_result = self.__predict_binary(result, activation_fn)
                 #     # Update the weights for the class currently training
                 #     self.__update_weights(training_class_name, 1, text_reference_counter, binary_result, lr)
@@ -133,14 +135,13 @@ class TextClassifier:
                 #     if verbose:
                 #         print("Progress... {}/{} - sse: {}\033[K".format(i+1, len(training_class_reference[training_class_name]), sse), end="\r")
                 # Move on to training the next class if there is no more error
-                if validate:
-                    acc /= data_count
+                # if validate:
+                #     acc /= data_count
                 if verbose:
                     print("\nTraining class {} - Epoch {}/{} - acc: {}".format(training_class_name, epoch+1, epochs, acc))
                 if basic_log:
                     print("Training class {} - Epoch {}/{}\033[K".format(training_class_name, epoch+1, epochs), end="\r")
-                if sse == 0:
-                    break
+            self.__validate(validate_data[0], validate_data[1], validate_data[2], validate_data[3], validate_data[4])
 
     def predict(self, input_data_reference, activation_fn="step", verbose=False):
         """Predict class from an input data.
@@ -226,30 +227,33 @@ class TextClassifier:
             print("Begin {}-fold cross-validation".format(k))
         for i in range(k):
             # Referesh the model
+            k_label = str(i)
             self.__clear_weights()
-            if verbose:
-                print("K-th {}/{}".format(i+1, k))
-            self.train(training_reference[i], epochs, activation_fn=activation_fn, lr=lr, verbose=False, basic_log=True)
             raw_validation_data = [file_path for class_name in validating_reference[i] for file_path in validating_reference[i][class_name]]
             solution_validation_data = {file_path: class_name for class_name in validating_reference[i] for file_path in validating_reference[i][class_name]}
-            predicted_classes = self.predict(raw_validation_data, activation_fn=activation_fn, verbose=verbose)
-            # Score the prediction
             if verbose:
-                print("Scoring the prediction...")
-            k_label = str(i)
-            error_report[k_label] = 0
-            for file_path in predicted_classes:
-                isCorrect = predicted_classes[file_path] == solution_validation_data[file_path]
-                error_report[k_label] += 1 if not isCorrect else 0
-            error_report[k_label] /= len(raw_validation_data)
+                print("K-th {}/{}".format(i+1, k))
+            self.train(training_reference[i], epochs, activation_fn=activation_fn, lr=lr, validate_data=(k, raw_validation_data, solution_validation_data, activation_fn, True), validate=True, verbose=True, basic_log=False)
+            error_report[k_label] = self.__validate(self, k, raw_validation_data, solution_validation_data, activation_fn, verbose=False)
             error_report[avg_label] += error_report[k_label]
-            if verbose:
-                print("Error rate: {}".format(error_report[k_label]))
         error_report[avg_label] /= k
         return error_report
 
+    def __validate(self, k, raw_validation_data, solution_validation_data, activation_fn, verbose=False):
+        predicted_classes = self.predict(raw_validation_data, activation_fn=activation_fn, verbose=verbose)
+        # Score the prediction
+        if verbose:
+            print("Scoring the prediction...")
+        error_report = 0
+        for file_path in predicted_classes:
+            isCorrect = predicted_classes[file_path] == solution_validation_data[file_path]
+            error_report += 1 if not isCorrect else 0
+        error_report /= len(raw_validation_data)
+        if verbose:
+            print("Error rate: {}".format(error_report))
+
     def __clear_weights(self):
-        """Clean up the weight model, leaving only default init values"""
+        """Clean up the weight model, leaving only default init values."""
         self.__weights = {self.__BIAS_WEIGHT_KEY: {name: self.__INITIAL_BIAS_VALUE for name in self.__class_names}}
 
     def __get_text_vector_from_file(self, file_name):
@@ -306,7 +310,8 @@ class TextClassifier:
             lr:                     A floating point learning rate.
         """
         for word in text_reference_counter:
-            delta = lr * (expected_output - network_output) * text_reference_counter[word]
+            direction = 1 if network_output == expected_output else -1
+            delta = lr * direction * text_reference_counter[word]
             self.__weights[word][class_label] += delta
 
     def __predict_multi(self, text_vector, activation_fn):
@@ -341,12 +346,12 @@ class TextClassifier:
 
         """
         if fn == "step":
-            return 1 if value >= 0 else 0
+            return 1 if value > 0 else 0
         elif fn == "sigmoid":
-            return 1 if value > 0.5 else 0
+            return 1 if value > 0.5 else -1
         else:
             print("Invalid activation function provided: {}, falling back on to step activation.".format(fn))
-            return 1 if value >= 0 else 0
+            return 1 if value >= 0 else -1
 
     def __preprocess_text(self, text_vector):
         """Preprocess a text vector.
@@ -382,10 +387,10 @@ class TextClassifier:
             text_reference_counter[word] = text_reference_counter.get(word, 0) + 1
         # Normalize the word frequency so that texts of different length will
         # contribute to the machine in the same scale
-        for word in text_reference_counter:
-            if word == self.__BIAS_WEIGHT_KEY:
-                continue
-            text_reference_counter[word] /= total_word_count
+        # for word in text_reference_counter:
+        #     if word == self.__BIAS_WEIGHT_KEY:
+        #         continue
+        #     text_reference_counter[word] /= total_word_count
         return text_reference_counter
 
     def __preprocess_word(self, token):
@@ -403,6 +408,8 @@ class TextClassifier:
             The preprocessed word if the word is not a stop word, otherwise return 'None'.
 
         """
+        # if token.isnumeric():
+        #     return None
         # Normalize the text to lowercase
         input_word = token.lower() if token.isalpha() else token
         # Ignore stopwords
@@ -453,7 +460,7 @@ class TextClassifier:
 
     def __step_function(self, value):
         """Return 1 if value is greater than 0, -1 otherwise."""
-        return 1 if value > 0 else -1
+        return 1 if value >= 0 else -1
 
     def __sigmoid_function(self, value):
         """Return the value of sigmoid transformation."""
