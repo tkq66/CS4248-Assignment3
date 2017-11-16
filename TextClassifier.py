@@ -7,7 +7,8 @@ Author: Teekayu Klongtruajrok
 For CS4248 Assignment 3 - National University of Singapore (NUS) 2017
 """
 from data_utils import split_cross_validation_class_reference
-from math import exp
+from math import exp, sqrt
+from random import gauss
 
 
 class TextClassifier:
@@ -58,7 +59,7 @@ class TextClassifier:
         """Return classifier weight model."""
         return self.__weights
 
-    def train(self, training_class_reference, epochs, activation_fn="step", lr=0.01, verbose=False):
+    def train(self, training_class_reference, epochs, activation_fn="step", lr=0.01, validate=False, verbose=False, basic_log=False):
         """Train perceptron classifier from an input dictionary.
 
         Train a text classifier using perceptron algorithm from a given input data.
@@ -81,7 +82,9 @@ class TextClassifier:
                                             1.) "step" - Step function
                                             2.) "sigmoid" - Sigmoid function
             lr:                       A floating point learning rate. (default 0.01)
+            validate:                 A boolean switch whether to perform validation per epoch or not. (default False)
             verbose:                  A boolean switch whether to print training details or not. (default Fasle)
+            basic_log:                A boolean switch whether to printn basic logging or not. (default False)
         """
         assert isinstance(training_class_reference, dict)
         assert all(isinstance(training_class_reference[c], list) for c in training_class_reference.keys())
@@ -90,28 +93,52 @@ class TextClassifier:
         assert lr > 0
         assert epochs > 0
 
+        if verbose:
+            print("Begin training...")
         for index, training_class_name in enumerate(training_class_reference):
             for epoch in range(epochs):
-                if verbose:
-                    print("Training class {} - Epoch {}/{}".format(training_class_name, epoch, epochs))
                 sse = 0.0
+                acc = 0.0
+                data_count = 0
                 # Train with all the available data, specifying 1 when it's the correct class and -1 otherwise
                 for index, data_class_name in enumerate(training_class_reference):
-                    expected_output = 1 if data_class_name == training_class_name else -1
+                    expected_output = 1 if data_class_name == training_class_name else 0
                     for i in range(len(training_class_reference[data_class_name])):
                         file_path = training_class_reference[data_class_name][i]
                         text_vector = self.__get_text_vector_from_file(file_path)
                         # Send new input through forward pass for the class currently training
-                        result, text_reference_counter = self.__forward_pass(training_class_name, text_vector, activation_fn)
+                        result, affine_result, text_reference_counter = self.__forward_pass(training_class_name, text_vector, activation_fn)
+                        binary_result = self.__predict_binary(result, activation_fn)
                         # Update the weights for the class currently training
-                        self.__update_weights(training_class_name, expected_output, text_reference_counter, result, lr)
+                        self.__update_weights(training_class_name, expected_output, text_reference_counter, binary_result, lr)
                         # Caclculate the error
-                        sse += (result - expected_output) ** 2
+                        sse += (binary_result - expected_output) ** 2
+                        if validate:
+                            acc += 1 if self.__predict_multi(text_vector, activation_fn) == training_class_name else 0
+                            data_count += 1
                         if verbose:
-                            print("Progress... {}/{} - sse: {}\033[K".format(i, len(training_class_reference[data_class_name]), sse), end="\r")
-                if verbose:
-                    print("\nLoss: {}".format(sse))
+                            print("Progress... {}/{} - sse: {}\033[K".format(i+1, len(training_class_reference[data_class_name]), sse), end="\r")
+                # for i in range(len(training_class_reference[training_class_name])):
+                #     file_path = training_class_reference[training_class_name][i]
+                #     text_vector = self.__get_text_vector_from_file(file_path)
+                #     # Send new input through forward pass for the class currently training
+                #     result, text_reference_counter = self.__forward_pass(training_class_name, text_vector, activation_fn)
+                #     binary_result = self.__predict_binary(result, activation_fn)
+                #     # Update the weights for the class currently training
+                #     self.__update_weights(training_class_name, 1, text_reference_counter, binary_result, lr)
+                #     # Caclculate the error
+                #     sse += (binary_result - 1) ** 2
+                #     acc += 1 if self.__predict_multi(text_vector, activation_fn) == training_class_name else 0
+                #     data_count += 1
+                #     if verbose:
+                #         print("Progress... {}/{} - sse: {}\033[K".format(i+1, len(training_class_reference[training_class_name]), sse), end="\r")
                 # Move on to training the next class if there is no more error
+                if validate:
+                    acc /= data_count
+                if verbose:
+                    print("\nTraining class {} - Epoch {}/{} - acc: {}".format(training_class_name, epoch+1, epochs, acc))
+                if basic_log:
+                    print("Training class {} - Epoch {}/{}\033[K".format(training_class_name, epoch+1, epochs), end="\r")
                 if sse == 0:
                     break
 
@@ -147,13 +174,7 @@ class TextClassifier:
                 print("Predicting data... {}/{}\033[K".format(i, total_input), end="\r")
             # Get raw data
             text_vector = self.__get_text_vector_from_file(file_path)
-            predicted_classes = []
-            # Calculate the forward pass for for all perceptron classes, then select largest one
-            for class_name in self.__class_names:
-                # Send new input through forward pass
-                result, text_reference_counter = self.__forward_pass(class_name, text_vector, activation_fn)
-                predicted_classes.append(tuple((class_name, result)))
-            predicted_class_name, _ = max(predicted_classes, key=lambda x: x[1])
+            predicted_class_name = self.__predict_multi(text_vector, activation_fn)
             results[file_path] = predicted_class_name
         return results
 
@@ -207,8 +228,8 @@ class TextClassifier:
             # Referesh the model
             self.__clear_weights()
             if verbose:
-                print("K-th {}/{}".format(i, k))
-            self.train(training_reference[i], epochs, activation_fn=activation_fn, lr=lr, verbose=verbose)
+                print("K-th {}/{}".format(i+1, k))
+            self.train(training_reference[i], epochs, activation_fn=activation_fn, lr=lr, verbose=False, basic_log=True)
             raw_validation_data = [file_path for class_name in validating_reference[i] for file_path in validating_reference[i][class_name]]
             solution_validation_data = {file_path: class_name for class_name in validating_reference[i] for file_path in validating_reference[i][class_name]}
             predicted_classes = self.predict(raw_validation_data, activation_fn=activation_fn, verbose=verbose)
@@ -265,7 +286,7 @@ class TextClassifier:
         text_reference_counter = self.__preprocess_text(text_vector)
         affine_result = self.__affine_transformation(class_label, text_reference_counter)
         result = self.__activation(affine_result, activation_fn)
-        return result, text_reference_counter
+        return result, affine_result, text_reference_counter
 
     def __update_weights(self, class_label, expected_output, text_reference_counter, network_output, lr):
         """Update the weights of the model, following the perceptron updating rule.
@@ -287,6 +308,45 @@ class TextClassifier:
         for word in text_reference_counter:
             delta = lr * (expected_output - network_output) * text_reference_counter[word]
             self.__weights[word][class_label] += delta
+
+    def __predict_multi(self, text_vector, activation_fn):
+        """Predict multiple classes by finding the class with max activation value.
+
+        Args:
+            text_vector:   A list of input text.
+            activation_fn: A string identifier of the activation function to use.
+
+        Returns:
+            Predicted class name.
+
+        """
+        predicted_classes = []
+        # Calculate the forward pass for for all perceptron classes, then select largest one
+        for class_name in self.__class_names:
+            # Send new input through forward pass
+            result, affine_result, text_reference_counter = self.__forward_pass(class_name, text_vector, activation_fn)
+            predicted_classes.append(tuple((class_name, affine_result)))
+        predicted_class_name, _ = max(predicted_classes, key=lambda x: x[1])
+        return predicted_class_name
+
+    def __predict_binary(self, value, fn):
+        """Predict the binary class based on different activation function type.
+
+        Args:
+            value: A number input.
+            fn:    A string identifier of the activation function to use.
+
+        Returns:
+            The result of the activation function.
+
+        """
+        if fn == "step":
+            return 1 if value >= 0 else 0
+        elif fn == "sigmoid":
+            return 1 if value > 0.5 else 0
+        else:
+            print("Invalid activation function provided: {}, falling back on to step activation.".format(fn))
+            return 1 if value >= 0 else 0
 
     def __preprocess_text(self, text_vector):
         """Preprocess a text vector.
