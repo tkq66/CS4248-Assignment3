@@ -7,11 +7,11 @@ over all k's before outputting it to a file.
 Author: Teekayu Klongtruajrok
 For CS4248 Assignment 3 - National University of Singapore (NUS) 2017
 """
-from data_utils import get_stop_word_set, get_training_class_reference
+from data_utils import get_stop_word_set, get_training_class_reference, split_cross_validation_class_reference
 import json
 from porter import PorterStemmer
 from sys import argv
-from TextClassifier import TextClassifier as tc
+from TextClassifier import TextClassifier
 
 
 def main():
@@ -25,10 +25,16 @@ def main():
         3.) path to the stopword file
         4.) path to the reference file
     """
-    k = argv[1]
+    k = int(argv[1])
     output_file_name = argv[2]
     stop_word_file_name = argv[3]
     train_class_list_file_name = argv[4]
+
+    training_class_reference = get_training_class_reference(train_class_list_file_name, tc_location="")
+    text_classifier = TextClassifier(class_names=list(training_class_reference.keys()),
+                                     stemmer=PorterStemmer(),
+                                     stopwords=get_stop_word_set(stop_word_file_name))
+    training_reference, validating_reference = split_cross_validation_class_reference(k, training_class_reference)
 
 
 if __name__ == "__main__":
