@@ -93,6 +93,7 @@ class TextClassifier:
         assert activation_fn in self.__SUPPORTED_ACTIVATION
         assert lr > 0
         assert epochs > 0
+        assert (not validate) or (validate and validate_data is not None)
 
         # TODO CLEAN UP THIS HACK
         self.__training_class_reference = training_class_reference
@@ -102,8 +103,6 @@ class TextClassifier:
         for epoch in range(epochs):
             print(datetime.datetime.now())
             for index, training_class_name in enumerate(training_class_reference):
-                acc = 0.0
-                data_count = 0
                 # Train with all the available data, specifying 1 when it's the correct class and -1 otherwise
                 for index, data_class_name in enumerate(training_class_reference):
                     expected_output = 1 if data_class_name == training_class_name else 0
@@ -115,34 +114,14 @@ class TextClassifier:
                         binary_result = self.__predict_binary(result, activation_fn)
                         # Update the weights for the class currently training
                         self.__update_weights(training_class_name, expected_output, text_reference_counter, binary_result, lr)
-                        # Caclculate the error
-                        # if validate:
-                        #     acc += 1 if self.__predict_multi(text_vector, activation_fn) == training_class_name else 0
-                        #     data_count += 1
                         if verbose:
                             print("Progress... {}/{}\033[K".format(i+1, len(training_class_reference[data_class_name])), end="\r")
-                # for i in range(len(training_class_reference[training_class_name])):
-                #     file_path = training_class_reference[training_class_name][i]
-                #     text_vector = self.__get_text_vector_from_file(file_path)
-                #     # Send new input through forward pass for the class currently training
-                #     result, affine_result, text_reference_counter = self.__forward_pass(training_class_name, text_vector, activation_fn)
-                #     binary_result = self.__predict_binary(result, activation_fn)
-                #     # Update the weights for the class currently training
-                #     self.__update_weights(training_class_name, 1, text_reference_counter, binary_result, lr)
-                #     # Caclculate the error
-                #     sse += (binary_result - 1) ** 2
-                #     acc += 1 if self.__predict_multi(text_vector, activation_fn) == training_class_name else 0
-                #     data_count += 1
-                #     if verbose:
-                #         print("Progress... {}/{} - sse: {}\033[K".format(i+1, len(training_class_reference[training_class_name]), sse), end="\r")
-                # Move on to training the next class if there is no more error
-                # if validate:
-                #     acc /= data_count
                 if verbose:
-                    print("\nTraining class {} - Epoch {}/{} - acc: {}".format(training_class_name, epoch+1, epochs, acc))
+                    print("\nTraining class {} - Epoch {}/{}".format(training_class_name, epoch+1, epochs))
                 if basic_log:
                     print("Training class {} - Epoch {}/{}\033[K".format(training_class_name, epoch+1, epochs), end="\r")
-            self.__validate(validate_data[0], validate_data[1], validate_data[2], validate_data[3], validate_data[4])
+            if validate and validate_data is not None:
+                self.__validate(validate_data[0], validate_data[1], validate_data[2], validate_data[3], validate_data[4])
 
     def predict(self, input_data_reference, activation_fn="step", verbose=False):
         """Predict class from an input data.

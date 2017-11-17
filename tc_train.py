@@ -33,7 +33,7 @@ def main():
     text_classifier = TextClassifier(class_names=list(training_class_reference.keys()),
                                      stemmer=PorterStemmer(),
                                      stopwords=get_stop_word_set(stop_word_file_name))
-    text_classifier.train(training_class_reference, epochs=200, verbose=True)
+    text_classifier.train(training_class_reference, epochs=34, activation_fn="step", lr=0.00001, verbose=True)
     output_dict_to_file(text_classifier.get_weights(), output_model_file_name)
 
 

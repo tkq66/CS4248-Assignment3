@@ -53,6 +53,20 @@ def get_training_class_reference(file_name, tc_location="/home/course/cs4248/"):
     return training_class_reference
 
 
+def get_testing_reference(file_name, tc_location="/home/course/cs4248/"):
+    default_location = "/home/course/cs4248/"
+    is_replace_file_loc = (tc_location != default_location)
+    input_file_name_list = []
+    with open(file_name, "r") as fp:
+        for line in fp:
+            preprocessed_line = line.strip()
+            if preprocessed_line == "":
+                continue
+            preprocessed_line = re.sub(default_location, tc_location, preprocessed_line) if is_replace_file_loc else preprocessed_line
+            input_file_name_list.append(preprocessed_line)
+    return input_file_name_list
+
+
 def split_cross_validation_class_reference(k, training_class_reference):
     """Split the dataset reference into training and validation dataset k times.
 
@@ -114,3 +128,10 @@ def output_dict_to_file(object, file_name):
     """Write the dictionary out to a json file."""
     with open(file_name, "w") as output_file:
         json.dump(object, output_file)
+
+
+def get_dict_from_file(file_name):
+    model = {}
+    with open(file_name) as fp:
+        model = json.load(fp)
+    return model
