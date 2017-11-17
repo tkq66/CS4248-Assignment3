@@ -102,7 +102,6 @@ class TextClassifier:
         for epoch in range(epochs):
             print(datetime.datetime.now())
             for index, training_class_name in enumerate(training_class_reference):
-                sse = 0.0
                 acc = 0.0
                 data_count = 0
                 # Train with all the available data, specifying 1 when it's the correct class and -1 otherwise
@@ -117,12 +116,11 @@ class TextClassifier:
                         # Update the weights for the class currently training
                         self.__update_weights(training_class_name, expected_output, text_reference_counter, binary_result, lr)
                         # Caclculate the error
-                        sse += (binary_result - expected_output) ** 2
                         # if validate:
                         #     acc += 1 if self.__predict_multi(text_vector, activation_fn) == training_class_name else 0
                         #     data_count += 1
                         if verbose:
-                            print("Progress... {}/{} - sse: {}\033[K".format(i+1, len(training_class_reference[data_class_name]), sse), end="\r")
+                            print("Progress... {}/{}\033[K".format(i+1, len(training_class_reference[data_class_name])), end="\r")
                 # for i in range(len(training_class_reference[training_class_name])):
                 #     file_path = training_class_reference[training_class_name][i]
                 #     text_vector = self.__get_text_vector_from_file(file_path)
@@ -237,7 +235,7 @@ class TextClassifier:
             if verbose:
                 print("K-th {}/{}".format(i+1, k))
             self.train(training_reference[i], epochs, activation_fn=activation_fn, lr=lr, validate_data=(k, raw_validation_data, solution_validation_data, activation_fn, True), validate=True, verbose=True, basic_log=False)
-            error_report[k_label] = self.__validate(self, k, raw_validation_data, solution_validation_data, activation_fn, verbose=False)
+            error_report[k_label] = self.__validate(k, raw_validation_data, solution_validation_data, activation_fn, verbose=False)
             error_report[avg_label] += error_report[k_label]
         error_report[avg_label] /= k
         return error_report
@@ -254,6 +252,7 @@ class TextClassifier:
         error_report /= len(raw_validation_data)
         if verbose:
             print("Error rate: {}".format(error_report))
+        return error_report
 
     def __clear_weights(self):
         """Clean up the weight model, leaving only default init values."""
@@ -313,6 +312,8 @@ class TextClassifier:
             lr:                     A floating point learning rate.
         """
         for word in text_reference_counter:
+            if word not in self.__weights:
+                continue
             direction = 1 if network_output == expected_output else -1
             delta = lr * direction * text_reference_counter[word]
             self.__weights[word][class_label] += delta
@@ -351,10 +352,10 @@ class TextClassifier:
         if fn == "step":
             return 1 if value > 0 else 0
         elif fn == "sigmoid":
-            return 1 if value > 0.5 else -1
+            return 1 if value >= 0.5 else 0
         else:
             print("Invalid activation function provided: {}, falling back on to step activation.".format(fn))
-            return 1 if value >= 0 else -1
+            return 1 if value >= 0 else 0
 
     def __preprocess_text(self, text_vector, class_label):
         """Preprocess a text vector.
@@ -474,7 +475,8 @@ class TextClassifier:
         """
         result = 0.0
         for key in text_reference_counter:
-            result += text_reference_counter[key] * self.__weights[key][class_label]
+            if key in self.__weights:
+                result += text_reference_counter[key] * self.__weights[key][class_label]
         return result
 
     def __activation(self, value, fn):
