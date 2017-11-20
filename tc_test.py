@@ -9,7 +9,7 @@ Run this module with:
 Author: Teekayu Klongtruajrok
 For CS4248 Assignment 3 - National University of Singapore (NUS) 2017
 """
-from data_utils import get_stop_word_set, get_testing_reference, get_dict_from_file
+from data_utils import get_stop_word_set, get_testing_reference_blind, get_dict_from_file
 from porter import PorterStemmer
 from sys import argv
 from TextClassifier import TextClassifier
@@ -37,7 +37,7 @@ def main():
     testing_list_file_name = argv[3]
     output_file_name = argv[4]
 
-    testing_reference_list = get_testing_reference(testing_list_file_name, tc_location="")
+    testing_reference_list = get_testing_reference_blind(testing_list_file_name)
     model = get_dict_from_file(model_file_name)
     class_names = list(model["__bias__"].keys())
     text_classifier = TextClassifier(class_names=class_names,

@@ -15,6 +15,31 @@ def get_stop_word_set(file_name):
     return stop_word_set
 
 
+def get_training_class_reference_blind(file_name):
+    training_class_reference = {}
+    with open(file_name, "r") as fp:
+        for line in fp:
+            preprocessed_line = line.strip()
+            if preprocessed_line == "":
+                continue
+            file_path, class_name = preprocessed_line.split()
+            if class_name not in training_class_reference:
+                training_class_reference[class_name] = []
+            training_class_reference[class_name].append(file_path)
+    return training_class_reference
+
+
+def get_testing_reference_blind(file_name):
+    input_file_name_list = []
+    with open(file_name, "r") as fp:
+        for line in fp:
+            preprocessed_line = line.strip()
+            if preprocessed_line == "":
+                continue
+            input_file_name_list.append(preprocessed_line)
+    return input_file_name_list
+
+
 def get_training_class_reference(file_name, tc_location="/home/course/cs4248/"):
     """Return a training input reference.
 

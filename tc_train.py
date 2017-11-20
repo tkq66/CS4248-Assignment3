@@ -9,7 +9,7 @@ Run this module with:
 Author: Teekayu Klongtruajrok
 For CS4248 Assignment 3 - National University of Singapore (NUS) 2017
 """
-from data_utils import get_stop_word_set, get_training_class_reference, output_dict_to_file
+from data_utils import get_stop_word_set, get_training_class_reference_blind, output_dict_to_file
 from porter import PorterStemmer
 from sys import argv
 from TextClassifier import TextClassifier
@@ -29,7 +29,7 @@ def main():
     train_class_list_file_name = argv[2]
     output_model_file_name = argv[3]
 
-    training_class_reference = get_training_class_reference(train_class_list_file_name, tc_location="")
+    training_class_reference = get_training_class_reference_blind(train_class_list_file_name)
     text_classifier = TextClassifier(class_names=list(training_class_reference.keys()),
                                      stemmer=PorterStemmer(),
                                      stopwords=get_stop_word_set(stop_word_file_name))
